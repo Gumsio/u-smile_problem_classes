@@ -88,6 +88,34 @@ python src/clean_data.py
 
 ---
 
+## Missing-Value Imputation
+
+`clean_missing_values()` runs after column pruning and conversion of dates to
+day counts. This lets it fill missing day counts as well as other supported
+columns. It uses MissForest-style imputation: it repeatedly trains
+random forests on known values to predict missing ones. Existing values stay
+unchanged. Numeric columns use regression; text, categories, booleans and binary
+numeric columns use classification.
+
+Change `max_iter`, `n_estimators`, and `random_state` in
+`src/cleaning_steps/missing_values.py` to control runtime and repeatability.
+Pass numeric category-code columns in `categorical_columns` and columns to
+leave out in `exclude_columns` (by default, `cid` and `cid.1`). If pruning removes
+a column listed in `categorical_columns`, the function warns and continues
+without it. It does not recreate pruned columns.
+
+Dates, entirely empty columns, columns containing infinity, and unsupported
+values stay unchanged. Mostly numeric text, such as `ALDOpg/ml`, must be cleaned
+and converted to numbers first. The function warns when missing values remain.
+It does not treat strings such as `CHECK` as missing automatically. Numeric
+predictions can be fractional, so counts may need a separate rounding rule.
+
+This step can be slow on wide datasets. For later predictive modelling, split
+the data first and fit imputation using training data only. This cleaning
+function fits on all rows passed to it; it is not a reusable train/test imputer.
+
+---
+
 ## Using in Jupyter Notebooks
 
 If you want to prototype or inspect the data inside `notebooks/data_cleaning.ipynb`:
@@ -138,7 +166,7 @@ functions in order, and saves the result. Put cleaning logic in
 1. **Create an issue and a branch from `main`.** Follow the Team Git Workflow above.
 2. **Choose a file for your task.** The current files are:
    * `text_normalization.py`: Clean column names and text.
-   * `missing_values.py`: Handle missing values (currently a placeholder).
+   * `missing_values.py`: Fill missing numeric and categorical values with iterative random forests (MissForest).
    * `date_formatting.py`: Fix dates and calculate observation time.
 
    Keep similar tasks together. You can add files such as `type_casting.py`
