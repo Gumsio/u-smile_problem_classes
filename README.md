@@ -18,7 +18,12 @@ u-smile_problem_classes/
 │   └── data_cleaning.ipynb     # Interactive exploration & prototyping
 ├── src/
 │   ├── __init__.py
-│   └── clean_data.py           # Pipeline script & modular cleaning functions
+│   ├── clean_data.py           # Orchestrator: load, run ordered steps, save
+│   └── cleaning_steps/         # Cleaning logic split by responsibility
+│       ├── __init__.py
+│       ├── text_normalization.py
+│       ├── missing_values.py
+│       └── date_formatting.py
 ├── .gitignore                  # Ignores .venv, caches, and intermediate files
 ├── README.md                   # Project documentation & team instructions
 └── requirements.txt            # Dependencies (pandas, openpyxl, jupyter)
@@ -30,7 +35,8 @@ u-smile_problem_classes/
 * **`data/raw/`**: Contains the original, unaltered data files (`.csv` and `.xlsx`). Treat this folder as read-only.
 * **`data/processed/`**: Stores cleaned, standardized output produced by `src/clean_data.py`.
 * **`notebooks/`**: For inspecting data, testing snippets, and prototyping cleaning functions.
-* **`src/`**: Contains the source code for the cleaning pipeline.
+* **`src/clean_data.py`**: Orchestrates loading, the ordered cleaning steps in `clean_data(df)`, and saving. Keep transformation logic in the step modules.
+* **`src/cleaning_steps/`**: Contains modules grouped by cleaning responsibility, so teammates can implement separate steps in separate files.
 
 ---
 
@@ -77,7 +83,7 @@ python src/clean_data.py
 ### What happens when you run it:
 
 1. Loads raw data from `data/raw/cardiac_patient_data.csv` (or `.xlsx`).
-2. Applies sequential cleaning functions in `clean_data()`.
+2. Runs the cleaning functions imported from `cleaning_steps/` in the explicit order defined by `clean_data()`.
 3. Exports the clean dataset to `data/processed/cardiac_patient_data_clean.csv`.
 
 ---
@@ -116,26 +122,55 @@ To keep our codebase stable and organized, we follow an Issue-Driven workflow.
 2. **Branch per Issue:** Create a dedicated feature branch for your issue branching directly off `main` (e.g., `feature/12-impute-age`).
 3. **Merge via Pull Request:** Never push directly to `main`. When your work is done, open a Pull Request (PR) and have at least one team member review and approve it before merging.
 
+This workflow also applies to the modular pipeline: keep each issue focused on
+one cleaning responsibility and include its module plus the small orchestrator
+change needed to register it in the same PR. Coordinate overlapping work on the
+same module. Before merging, bring your branch up to date with `main`, resolve
+any changes to the shared step order, and rerun the pipeline. If a step depends
+on another unmerged step, record that dependency in the issue and merge the
+prerequisite PR first.
+
 ---
 
 ## Team Workflow: Adding Cleaning Steps
 
 When assigned a specific cleaning task (e.g. normalizing column names, fixing date formats, or handling missing values):
 
-1. **Open [`src/clean_data.py`](src/clean_data.py)**.
-2. **Implement or update the dedicated function**:
-   * `clean_column_names(df)`: Column renaming, stripping whitespace, removing special characters.
-   * `clean_dates(df)`: Parsing and standardizing inconsistent date formats.
-   * `clean_missing_values(df)`: Imputing or handling missing / placeholder values.
-3. **Register it in `clean_data(df)`**:
-   Ensure your function is called in the main cleaning pipeline chain.
-4. **Run and verify**:
+1. **Start with an issue and a feature branch from `main`**, following the Team Git Workflow above.
+2. **Choose or create a module in `src/cleaning_steps/`** based on the task:
+   * `text_normalization.py`: Column names, whitespace, and text normalization.
+   * `missing_values.py`: Missing values and placeholder handling.
+   * `date_formatting.py`: Date parsing, invalid-date corrections, and observation durations.
+   * Add another clearly named module when the task has a different responsibility. Group by purpose rather than teammate name.
+3. **Implement a function that accepts and returns a DataFrame**. Work on a copy, document required columns and any prerequisite steps, and keep file loading and saving in the orchestrator. For example, in `text_normalization.py`:
+
+   ```python
+   import pandas as pd
+
+   def normalize_text(df: pd.DataFrame) -> pd.DataFrame:
+       df = df.copy()
+       df.columns = [str(column).strip() for column in df.columns]
+       return df
+   ```
+
+4. **Register the step in `src/clean_data.py`**. Import it and call it explicitly inside `clean_data(df)`, assigning its returned DataFrame. Use imports that support both the command-line script and the notebook's `from src.clean_data import ...`:
+
+   ```python
+   if __package__:
+       from .cleaning_steps.text_normalization import normalize_text
+   else:
+       from cleaning_steps.text_normalization import normalize_text
+   ```
+
+   Add `df = normalize_text(df)` at the appropriate point in the existing `clean_data(df)` chain. Preserve other steps and the final dtype conversion. Column-name normalization should run before steps that reference those names; missing-value handling and date parsing should be ordered according to their documented dependencies. Keep this shared-file change small and explain any ordering change in the PR.
+5. **Run and verify from the project root**:
 
    ```bash
    python src/clean_data.py
    ```
 
-   Check that the output file in `data/processed/cardiac_patient_data_clean.csv` is updated cleanly.
+   Check the affected columns and row counts in `data/processed/cardiac_patient_data_clean.csv`. Verify representative inputs, missing values, and relevant edge cases for your step. Also check that `from src.clean_data import load_data, clean_data, save_data` still works for notebooks.
+6. **Open a PR linked to the issue**. Describe the transformation, its position in the pipeline, and your verification results. Obtain a teammate's review before merging.
 
 ---
 
