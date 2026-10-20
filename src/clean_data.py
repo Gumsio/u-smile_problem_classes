@@ -6,12 +6,12 @@ import pandas as pd
 # Support both `python src/clean_data.py` and `from src.clean_data import ...`.
 if __package__:
     from .cleaning_steps.text_normalization import clean_column_names
-    from .cleaning_steps.date_formatting import clean_dates
+    from .cleaning_steps.date_formatting import clean_dates, calculate_days_to_end
     from .cleaning_steps.missing_values import clean_missing_values
     from .cleaning_steps.column_pruning import prune_columns
 else:
     from cleaning_steps.text_normalization import clean_column_names
-    from cleaning_steps.date_formatting import clean_dates
+    from cleaning_steps.date_formatting import clean_dates, calculate_days_to_end
     from cleaning_steps.missing_values import clean_missing_values
     from cleaning_steps.column_pruning import prune_columns
 
@@ -36,6 +36,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     df = clean_dates(df)
     df = prune_columns(df)
     df = clean_missing_values(df)
+    df = calculate_days_to_end(df)
     df = df.convert_dtypes()
     return df
 
