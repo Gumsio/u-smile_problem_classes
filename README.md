@@ -120,4 +120,3 @@ When assigned a specific cleaning task (e.g. normalizing column names, fixing da
 ## Golden Rules for the Team
 - **Do NOT modify raw data**: Never edit or overwrite files in `data/raw/`.
 - **Reproducibility**: Any cleaning transformation must be implemented in Python code so anyone can reproduce the exact same output.
-- **NO Data Analysis Yet**: Keep this phase focused entirely on data cleaning and standardization. Data analysis tasks will follow once the dataset is clean.
