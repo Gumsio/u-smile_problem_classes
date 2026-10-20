@@ -141,5 +141,4 @@ Created the `documentation` branch and this report at `documentation/ankasmietan
 
 ## References
 
-- [Column pruning issue #4](https://github.com/Gumsio/u-smile_problem_classes/issues/4)
 - [MissForest algorithm paper](https://arxiv.org/abs/1105.0828)
