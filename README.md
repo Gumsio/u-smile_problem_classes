@@ -90,7 +90,9 @@ python src/clean_data.py
 
 ## Missing-Value Imputation
 
-`clean_missing_values()` runs after column pruning and uses MissForest-style imputation: it repeatedly trains
+`clean_missing_values()` runs after column pruning and conversion of dates to
+day counts. This lets it fill missing day counts as well as other supported
+columns. It uses MissForest-style imputation: it repeatedly trains
 random forests on known values to predict missing ones. Existing values stay
 unchanged. Numeric columns use regression; text, categories, booleans and binary
 numeric columns use classification.

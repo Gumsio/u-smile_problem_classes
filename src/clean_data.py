@@ -35,8 +35,8 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     df = clean_column_names(df)
     df = clean_dates(df)
     df = prune_columns(df)
-    df = clean_missing_values(df)
     df = calculate_days_to_end(df)
+    df = clean_missing_values(df)
     df = df.convert_dtypes()
     return df
 

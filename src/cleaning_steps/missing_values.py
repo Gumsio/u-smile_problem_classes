@@ -25,7 +25,8 @@ def clean_missing_values(
 ) -> pd.DataFrame:
     """Impute supported columns and return a copy, preserving observed values.
 
-    Run after column/date cleaning and column pruning, before final dtype conversion. Numeric
+    Run after column pruning and conversion of dates to day counts, before
+    final dtype conversion. Numeric
     columns use regression; strings, categories, booleans and binary numeric
     columns use classification. List other numeric category codes explicitly
     in categorical_columns. Configured categories absent after pruning are
