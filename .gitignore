@@ -1,0 +1,15 @@
+# Python virtual environment
+.venv/
+venv/
+
+# Bytecode & cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Processed data output (keep directory tracked with .gitkeep)
+data/processed/*
+!data/processed/.gitkeep
+
+# OS files
+.DS_Store
