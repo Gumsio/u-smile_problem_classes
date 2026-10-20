@@ -36,7 +36,7 @@ u-smile_problem_classes/
 * **`data/processed/`**: Stores cleaned, standardized output produced by `src/clean_data.py`.
 * **`notebooks/`**: For inspecting data, testing snippets, and prototyping cleaning functions.
 * **`src/clean_data.py`**: Orchestrates loading, the ordered cleaning steps in `clean_data(df)`, and saving. Keep transformation logic in the step modules.
-* **`src/cleaning_steps/`**: Contains modules grouped by cleaning responsibility, so teammates can implement separate steps in separate files.
+* **`src/cleaning_steps/`**: Contains the cleaning functions. Keep similar tasks in the same file. Add new files when needed.
 
 ---
 
@@ -122,55 +122,57 @@ To keep our codebase stable and organized, we follow an Issue-Driven workflow.
 2. **Branch per Issue:** Create a dedicated feature branch for your issue branching directly off `main` (e.g., `feature/12-impute-age`).
 3. **Merge via Pull Request:** Never push directly to `main`. When your work is done, open a Pull Request (PR) and have at least one team member review and approve it before merging.
 
-This workflow also applies to the modular pipeline: keep each issue focused on
-one cleaning responsibility and include its module plus the small orchestrator
-change needed to register it in the same PR. Coordinate overlapping work on the
-same module. Before merging, bring your branch up to date with `main`, resolve
-any changes to the shared step order, and rerun the pipeline. If a step depends
-on another unmerged step, record that dependency in the issue and merge the
-prerequisite PR first.
+Keep each issue focused on one task. Include the cleaning function and its
+call in `clean_data.py` in the same PR. If two people need to edit the same file,
+agree on who changes what. Before merging, update your branch from `main` and
+run the pipeline again. If your work needs another PR, wait for that PR to merge first.
 
 ---
 
 ## Team Workflow: Adding Cleaning Steps
 
-When assigned a specific cleaning task (e.g. normalizing column names, fixing date formats, or handling missing values):
+`src/clean_data.py` runs the pipeline: it loads the data, calls the cleaning
+functions in order, and saves the result. Put cleaning logic in
+`src/cleaning_steps/`.
 
-1. **Start with an issue and a feature branch from `main`**, following the Team Git Workflow above.
-2. **Choose or create a module in `src/cleaning_steps/`** based on the task:
-   * `text_normalization.py`: Column names, whitespace, and text normalization.
-   * `missing_values.py`: Missing values and placeholder handling.
-   * `date_formatting.py`: Date parsing, invalid-date corrections, and observation durations.
-   * Add another clearly named module when the task has a different responsibility. Group by purpose rather than teammate name.
-3. **Implement a function that accepts and returns a DataFrame**. Work on a copy, document required columns and any prerequisite steps, and keep file loading and saving in the orchestrator. For example, in `text_normalization.py`:
+1. **Create an issue and a branch from `main`.** Follow the Team Git Workflow above.
+2. **Choose a file for your task.** The current files are:
+   * `text_normalization.py`: Clean column names and text.
+   * `missing_values.py`: Handle missing values (currently a placeholder).
+   * `date_formatting.py`: Fix dates and calculate observation time.
+
+   Keep similar tasks together. You can add files such as `type_casting.py`
+   for changing data types or `imputation.py` for filling missing values.
+   These are examples, not files you must create now. You do not need a
+   separate file for every function.
+
+3. **Write a function that takes a DataFrame and returns a cleaned copy.**
+   Keep loading and saving in `clean_data.py`. Explain which columns your
+   function needs. Use this pattern:
 
    ```python
-   import pandas as pd
-
-   def normalize_text(df: pd.DataFrame) -> pd.DataFrame:
+   def clean_something(df):
        df = df.copy()
-       df.columns = [str(column).strip() for column in df.columns]
+       # Apply your cleaning rules here.
        return df
    ```
 
-4. **Register the step in `src/clean_data.py`**. Import it and call it explicitly inside `clean_data(df)`, assigning its returned DataFrame. Use imports that support both the command-line script and the notebook's `from src.clean_data import ...`:
-
-   ```python
-   if __package__:
-       from .cleaning_steps.text_normalization import normalize_text
-   else:
-       from cleaning_steps.text_normalization import normalize_text
-   ```
-
-   Add `df = normalize_text(df)` at the appropriate point in the existing `clean_data(df)` chain. Preserve other steps and the final dtype conversion. Column-name normalization should run before steps that reference those names; missing-value handling and date parsing should be ordered according to their documented dependencies. Keep this shared-file change small and explain any ordering change in the PR.
-5. **Run and verify from the project root**:
+4. **Add the function to `src/clean_data.py`.** Add its import in both branches
+   of the existing `if __package__` block, following the other imports.
+   Then add `df = clean_something(df)` inside `clean_data(df)`.
+   Put it after any steps it depends on and before the final
+   `df.convert_dtypes()`. Keep the other steps in place.
+5. **Run the pipeline from the project folder:**
 
    ```bash
    python src/clean_data.py
    ```
 
-   Check the affected columns and row counts in `data/processed/cardiac_patient_data_clean.csv`. Verify representative inputs, missing values, and relevant edge cases for your step. Also check that `from src.clean_data import load_data, clean_data, save_data` still works for notebooks.
-6. **Open a PR linked to the issue**. Describe the transformation, its position in the pipeline, and your verification results. Obtain a teammate's review before merging.
+   Open `data/processed/cardiac_patient_data_clean.csv` and check the columns
+   you changed. Check missing values and unusual inputs too. If you changed
+   imports, also check that the notebook can still import the pipeline.
+6. **Open a PR linked to your issue.** Explain what changed and how you checked
+   it. Ask a teammate to review it before merging.
 
 ---
 
