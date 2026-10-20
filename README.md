@@ -122,23 +122,20 @@ To keep our codebase stable and organized, we follow an Issue-Driven workflow.
 
 When assigned a specific cleaning task (e.g. normalizing column names, fixing date formats, or handling missing values):
 
-1. **Open [`src/clean_data.py**`](https://www.google.com/search?q=src/clean_data.py).
+1. **Open [`src/clean_data.py`](src/clean_data.py)**.
 2. **Implement or update the dedicated function**:
-* `clean_column_names(df)`: Column renaming, stripping whitespace, removing special characters.
-* `clean_dates(df)`: Parsing and standardizing inconsistent date formats.
-* `clean_missing_values(df)`: Imputing or handling missing / placeholder values.
-
-
-3. **Register it in `clean_data(df)**`:
-Ensure your function is called in the main cleaning pipeline chain.
+   * `clean_column_names(df)`: Column renaming, stripping whitespace, removing special characters.
+   * `clean_dates(df)`: Parsing and standardizing inconsistent date formats.
+   * `clean_missing_values(df)`: Imputing or handling missing / placeholder values.
+3. **Register it in `clean_data(df)`**:
+   Ensure your function is called in the main cleaning pipeline chain.
 4. **Run and verify**:
-```bash
-python src/clean_data.py
 
-```
+   ```bash
+   python src/clean_data.py
+   ```
 
-
-Check that the output file in `data/processed/cardiac_patient_data_clean.csv` is updated cleanly.
+   Check that the output file in `data/processed/cardiac_patient_data_clean.csv` is updated cleanly.
 
 ---
 
