@@ -8,10 +8,12 @@ if __package__:
     from .cleaning_steps.text_normalization import clean_column_names
     from .cleaning_steps.date_formatting import clean_dates
     from .cleaning_steps.missing_values import clean_missing_values
+    from .cleaning_steps.column_pruning import prune_columns
 else:
     from cleaning_steps.text_normalization import clean_column_names
     from cleaning_steps.date_formatting import clean_dates
     from cleaning_steps.missing_values import clean_missing_values
+    from cleaning_steps.column_pruning import prune_columns
 
 # Define paths relative to the project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -32,6 +34,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """Run all cleaning steps in order and convert data types."""
     df = clean_column_names(df)
     df = clean_dates(df)
+    df = prune_columns(df)
     df = clean_missing_values(df)
     df = df.convert_dtypes()
     return df
