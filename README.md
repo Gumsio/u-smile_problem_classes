@@ -22,13 +22,15 @@ u-smile_problem_classes/
 ├── .gitignore                  # Ignores .venv, caches, and intermediate files
 ├── README.md                   # Project documentation & team instructions
 └── requirements.txt            # Dependencies (pandas, openpyxl, jupyter)
+
 ```
 
 ### Folder Roles
-- **`data/raw/`**: Contains the original, unaltered data files (`.csv` and `.xlsx`). Treat this folder as read-only.
-- **`data/processed/`**: Stores cleaned, standardized output produced by `src/clean_data.py`.
-- **`notebooks/`**: For inspecting data, testing snippets, and prototyping cleaning functions.
-- **`src/`**: Contains the source code for the cleaning pipeline.
+
+* **`data/raw/`**: Contains the original, unaltered data files (`.csv` and `.xlsx`). Treat this folder as read-only.
+* **`data/processed/`**: Stores cleaned, standardized output produced by `src/clean_data.py`.
+* **`notebooks/`**: For inspecting data, testing snippets, and prototyping cleaning functions.
+* **`src/`**: Contains the source code for the cleaning pipeline.
 
 ---
 
@@ -39,21 +41,26 @@ u-smile_problem_classes/
 Create and activate a standard Python virtual environment:
 
 **Linux / macOS:**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
+
 ```
 
 ### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
+
 ```
 
 ---
@@ -64,9 +71,11 @@ To run the entire data cleaning pipeline from the command line:
 
 ```bash
 python src/clean_data.py
+
 ```
 
 ### What happens when you run it:
+
 1. Loads raw data from `data/raw/cardiac_patient_data.csv` (or `.xlsx`).
 2. Applies sequential cleaning functions in `clean_data()`.
 3. Exports the clean dataset to `data/processed/cardiac_patient_data_clean.csv`.
@@ -94,7 +103,18 @@ cleaned_df = clean_data(df)
 
 # 3. Save output
 save_data(cleaned_df)
+
 ```
+
+---
+
+## Team Git Workflow
+
+To keep our codebase stable and organized, we follow an Issue-Driven workflow.
+
+1. **Create an Issue First:** Before writing code, open an issue. **Ensure the issue has a clear finish line** (e.g., "Impute missing age values" instead of "Look into missing data"). If an issue is too vague, break it down.
+2. **Branch per Issue:** Create a dedicated feature branch for your issue branching directly off `main` (e.g., `feature/12-impute-age`).
+3. **Merge via Pull Request:** Never push directly to `main`. When your work is done, open a Pull Request (PR) and have at least one team member review and approve it before merging.
 
 ---
 
@@ -102,21 +122,28 @@ save_data(cleaned_df)
 
 When assigned a specific cleaning task (e.g. normalizing column names, fixing date formats, or handling missing values):
 
-1. **Open [`src/clean_data.py`](src/clean_data.py)**.
+1. **Open [`src/clean_data.py**`](https://www.google.com/search?q=src/clean_data.py).
 2. **Implement or update the dedicated function**:
-   - `clean_column_names(df)`: Column renaming, stripping whitespace, removing special characters.
-   - `clean_dates(df)`: Parsing and standardizing inconsistent date formats.
-   - `clean_missing_values(df)`: Imputing or handling missing / placeholder values.
-3. **Register it in `clean_data(df)`**:
-   Ensure your function is called in the main cleaning pipeline chain.
+* `clean_column_names(df)`: Column renaming, stripping whitespace, removing special characters.
+* `clean_dates(df)`: Parsing and standardizing inconsistent date formats.
+* `clean_missing_values(df)`: Imputing or handling missing / placeholder values.
+
+
+3. **Register it in `clean_data(df)**`:
+Ensure your function is called in the main cleaning pipeline chain.
 4. **Run and verify**:
-   ```bash
-   python src/clean_data.py
-   ```
-   Check that the output file in `data/processed/cardiac_patient_data_clean.csv` is updated cleanly.
+```bash
+python src/clean_data.py
+
+```
+
+
+Check that the output file in `data/processed/cardiac_patient_data_clean.csv` is updated cleanly.
 
 ---
 
 ## Golden Rules for the Team
-- **Do NOT modify raw data**: Never edit or overwrite files in `data/raw/`.
-- **Reproducibility**: Any cleaning transformation must be implemented in Python code so anyone can reproduce the exact same output.
+
+* **Do NOT modify raw data**: Never edit or overwrite files in `data/raw/`.
+* **Reproducibility**: Any cleaning transformation must be implemented in Python code so anyone can reproduce the exact same output.
+* **Main is Protected**: `main` must always be working. All changes must go through Issues, Feature Branches, and Pull Requests.
