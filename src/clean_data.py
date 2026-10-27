@@ -72,6 +72,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     df = clean_dates(df)
     df = clean_missing_values(df)
     df = df.convert_dtypes()
+    df.drop(columns=['tryb'], inplace=True)     # dropping the column as suggested
     return df
 
 
