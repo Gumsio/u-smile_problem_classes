@@ -16,3 +16,5 @@ data/processed/*
 
 # Reproducible generated analysis runs
 results/feature_selection/
+# Generated exploratory feature rankings
+results/regularized_feature_selection/

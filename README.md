@@ -21,14 +21,15 @@ u-smile_problem_classes/
 ├── src/
 │   ├── __init__.py
 │   ├── clean_data.py           # Orchestrator: load, run ordered steps, save
-│   ├── select_features.py      # Run all selectors and compare 20 attributes each
+│   ├── select_features.py      # Run all selectors; at most 20 attributes each
 │   ├── run_pipeline.py     # Run cleaning, then feature selection
 │   ├── feature_selection/
-│   │   ├── __init__.py
+│   │   ├── baselines/          # Logistic regression, decision tree
+│   │   ├── statistics/         # ANOVA, mutual information
+│   │   ├── model_based/        # Lasso, Elastic Net, Boruta, XGBoost
 │   │   ├── preprocessing.py
-│   │   ├── logistic_regression.py
-│   │   ├── decision_tree.py
-│   │   └── boruta.py
+│   │   ├── regularized_selection.py  # Shared model-based ranking
+│   │   └── evaluation.py
 │   └── cleaning_steps/         # Cleaning logic split by responsibility
 │       ├── __init__.py
 │       ├── text_normalization.py
@@ -155,7 +156,7 @@ save_data(cleaned_df)
 
 ## Feature Selection for Recorded Death
 
-Run logistic regression, a decision tree, and Boruta, each selecting **20
+Run all configured selection methods, each selecting **at most 20
 original attributes**:
 
 ```bash
@@ -192,15 +193,16 @@ not the CSV already imputed on all patients.
   function cannot reuse fitted models on unseen rows, so it is not used here.
 - Logistic regression ranks by absolute coefficients after numeric scaling.
   The decision tree ranks by impurity reduction. Scores for one-hot columns
-  are summed under their original attribute name; each output list has 20
+  are summed under their original attribute name; each output list has at most 20
   original names, not 20 dummy columns. These scores have different scales,
   and summed category scores can favor attributes with more categories.
-- Rank on training data, select 20 names, and refit the model on those names.
+- Rank on training data, select at most 20 names, and refit the model on those names.
   Repeat this entire process for every validation fold. Final names are learned
   from the full training portion; the final test labels are used only to score.
-- If a tree uses fewer than 20 attributes, zero-score ties are filled by name
-  and a warning is printed. A zero-score attribute is not evidence of importance.
-  If fewer than 20 usable columns remain, the run fails with a clear message.
+- Keep at most 20 original attributes with positive importance. If fewer
+  qualify, retain the smaller set; do not pad with zero-score columns. If none
+  qualify, score a constant training-prevalence predictor instead.
+
 
 Known identifiers, `tryb`, source dates and death/follow-up durations are excluded.
 In particular, `Time of observation` and `days_implantation_to_end` use outcome
@@ -212,9 +214,9 @@ currently treated as numbers; their meanings still need a data-dictionary review
 BorutaPy uses random forests and shuffled shadow features to label features as
 confirmed, tentative or rejected. It runs independently on each training fold,
 using 128 trees, a maximum of 50 iterations and random seed 42 by default.
-Its settings are in `src/feature_selection/boruta.py`.
+Its settings are in `src/feature_selection/model_based/boruta.py`.
 
-To keep the requested comparison at 20 original attributes, order by best
+To cap the comparison at 20 original attributes, order by best
 encoded Boruta rank, then summed median importance, then name. An original
 attribute is confirmed if any encoded category is confirmed; otherwise it is
 tentative if any category is tentative. This grouping is a reporting convention.
@@ -326,3 +328,34 @@ functions in order, and saves the result. Put cleaning logic in
 * **Do NOT modify raw data**: Never edit or overwrite files in `data/raw/`.
 * **Reproducibility**: Any cleaning transformation must be implemented in Python code so anyone can reproduce the exact same output.
 * **Main is Protected**: `main` must always be working. All changes must go through Issues, Feature Branches, and Pull Requests.
+
+
+## Unified Feature-Selection Evaluation
+
+`notebooks/test_feature_selection_techniques.ipynb` is restored unchanged from
+its original ANOVA/MI/RF/RFE version. All validated method comparisons now live
+in `notebooks/feature_selection_comparison.ipynb`.
+
+Run `python src/select_features.py`, then open the comparison notebook. It
+includes logistic regression, decision tree, ANOVA, mutual information,
+random-forest importance, RFE, Boruta, Lasso, Elastic Net and XGBoost. Every
+method repeats training-only preprocessing and selection on the same five
+folds within an 80% training split; the remaining 20% is held out. ROC AUC is
+the primary metric. Select at most 20 original attributes with positive
+importance, never zero-score padding. Boruta statuses remain separate from
+the capped set. ANOVA, MI and RFE use logistic regression for evaluation;
+other methods use their corresponding classifier, with random forest for
+Boruta. This compares selector/classifier combinations, not selectors alone.
+
+Method code is grouped under `baselines/`, `statistics/`, and `model_based/`.
+RFE removes 10% of encoded inputs per iteration, and original-column rank is
+its best encoded rank. All methods use initial fixed settings, not tuned
+settings. Earlier standalone sparse-logistic scores used different validation
+splits and should not be compared directly to this unified run.
+
+
+The comparison notebook shows only the top five chosen attributes per method.
+`top20_attributes_by_method.csv` saves the complete capped selections together
+(rows: ranks 1–20; columns: methods). `attribute_selection_frequency.csv` counts
+how many methods chose each attribute across their complete final selections.
+Cross-validation frequency is saved separately as `fold_selection_frequency.csv`.

@@ -1,4 +1,4 @@
-"""Run baseline and Boruta selectors and save 20 original attributes per method."""
+"""Run all feature selectors and save at most 20 original attributes per method."""
 
 import argparse
 from datetime import datetime, timezone
@@ -19,26 +19,33 @@ from sklearn.metrics import (
     confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score,
 )
 from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.dummy import DummyClassifier
 
 # Use the same package imports when called as a script or python -m src.select_features.
 if not __package__:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.clean_data import RAW_DATA_PATH, PROJECT_ROOT
-from src.feature_selection import logistic_regression, decision_tree, boruta
+from src.feature_selection.baselines import logistic_regression, decision_tree
+from src.feature_selection.model_based import boruta, lasso, elastic_net, xgboost, random_forest, rfe
+from src.feature_selection.statistics import anova, mutual_information
 from src.feature_selection.preprocessing import FeaturePreprocessor, prepare_xy
+from src.feature_selection.reporting import save_selection_reports
 from src.cleaning_steps.column_pruning import prune_columns
 
 PRIMARY_METRIC = "roc_auc"
 N_FEATURES = 20
-METHODS = {'logistic_regression': logistic_regression, 'decision_tree': decision_tree, 'boruta': boruta}
+METHODS = {
+    'logistic_regression': logistic_regression, 'decision_tree': decision_tree,
+    'anova': anova, 'mutual_information': mutual_information,
+    'random_forest': random_forest, 'rfe': rfe, 'boruta': boruta,
+    'lasso': lasso, 'elastic_net': elastic_net, 'xgboost': xgboost,
+}
 
 
 def fit_selector(method, X, y, random_state):
-    """Rank on training patients, then refit using exactly 20 original columns."""
+    """Rank on training patients, then refit using at most 20 nonzero columns."""
     preprocessor = FeaturePreprocessor().fit(X)
-    if len(preprocessor.columns_) < N_FEATURES:
-        raise ValueError(f'Need at least {N_FEATURES} usable attributes; found {len(preprocessor.columns_)}.')
     if hasattr(method, 'rank_features'):
         ranking = method.rank_features(preprocessor, X, y, random_state)
     else:
@@ -48,14 +55,14 @@ def fit_selector(method, X, y, random_state):
         ranking = importance.rename('importance').rename_axis('feature').reset_index()
         ranking = ranking.sort_values(['importance', 'feature'], ascending=[False, True]).reset_index(drop=True)
     ranking.insert(0, 'rank', np.arange(1, len(ranking) + 1))
-    ranking['selected'] = ranking['rank'] <= N_FEATURES
+    ranking['selected'] = (ranking['rank'] <= N_FEATURES) & (ranking['importance'] > 1e-8)
     selected = ranking.loc[ranking['selected'], 'feature'].tolist()
     if 'boruta_status' in ranking and (ranking.loc[ranking['selected'], 'boruta_status'] != 'confirmed').any():
         warnings.warn('The 20-attribute Boruta comparison includes tentative or rejected attributes; '
                       'consult boruta_status in the saved rankings.', stacklevel=2)
-    if (ranking.loc[ranking['selected'], 'importance'] == 0).any():
-        warnings.warn('Some of the 20 selected attributes have zero ranking importance; '
-                      'ties are ordered by name, not evidence of predictive usefulness.', stacklevel=2)
+    if not selected:
+        model = DummyClassifier(strategy='prior').fit(np.zeros((len(X), 1)), y)
+        return None, model, ranking, selected
     final_preprocessor = FeaturePreprocessor().fit(X[selected], prune=False)
     model = method.build_model(random_state)
     model.fit(final_preprocessor.transform(X[selected]), y)
@@ -63,7 +70,7 @@ def fit_selector(method, X, y, random_state):
 
 
 def evaluate(preprocessor, model, X, y):
-    transformed = preprocessor.transform(X)
+    transformed = preprocessor.transform(X) if preprocessor is not None else np.zeros((len(X), 1))
     probabilities = model.predict_proba(transformed)[:, list(model.classes_).index(1)]
     predicted = model.predict(transformed)
     tn, fp, fn, tp = confusion_matrix(y, predicted, labels=[0, 1]).ravel()
@@ -89,10 +96,10 @@ def git_metadata():
 
 
 def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_state=42):
-    """Evaluate a fixed 20-attribute selection with a held-out test set.
+    """Evaluate selections of at most 20 attributes with a held-out test set.
 
     Five CV folds use only the training portion. Each fold independently fits
-    pruning, imputers, encoders, scaling and ranking, then refits on 20 features.
+    pruning, imputers, encoders, scaling and ranking, then refits on at most 20 features.
     The final selections are fitted on all training patients, never test labels.
     """
     input_path = Path(input_path)
@@ -107,7 +114,7 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
     cv_rows, ranking_tables, test_rows, selected_sets, fold_selections = [], [], [], {}, []
     models_config = {}
     for name, method in METHODS.items():
-        print(f'{name}: five-fold validation and final 20-attribute selection...', flush=True)
+        print(f'{name}: five-fold validation and final selection of at most 20 attributes...', flush=True)
         for fold, (training, validation) in enumerate(cv.split(X_train, y_train), start=1):
             preprocessor, model, ranking, selected = fit_selector(
                 method, X_train.iloc[training], y_train.iloc[training], random_state,
@@ -121,7 +128,7 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
         ranking.insert(0, 'method', name)
         ranking_tables.append(ranking)
         models_config[name] = model.get_params()
-        test_rows.append({'method': name, 'n_features': N_FEATURES,
+        test_rows.append({'method': name, 'n_features': len(selected),
                           **evaluate(preprocessor, model, X_test, y_test)})
 
     output_root = Path(output_root) if output_root else PROJECT_ROOT / 'results' / 'feature_selection'
@@ -134,7 +141,9 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
     summary.columns = [f'{metric}_{stat}' for metric, stat in summary.columns]
     summary = summary.sort_values(f'{PRIMARY_METRIC}_mean', ascending=False, kind='stable')
     summary.to_csv(output / 'cv_summary.csv')
-    pd.concat(ranking_tables, ignore_index=True).to_csv(output / 'feature_rankings.csv', index=False)
+    final_rankings = pd.concat(ranking_tables, ignore_index=True)
+    final_rankings.to_csv(output / 'feature_rankings.csv', index=False)
+    save_selection_reports(final_rankings, output)
     pd.DataFrame(test_rows).to_csv(output / 'test_results.csv', index=False)
     pd.DataFrame(fold_selections).to_csv(output / 'fold_selected_features.csv', index=False)
     overlap = {
@@ -153,7 +162,7 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
         'test_fraction': 0.2, 'cv_folds': 5, 'train_rows': len(X_train), 'test_rows': len(X_test),
         'class_counts': {str(k): int(v) for k, v in y.value_counts().items()},
         'source': str(input_path.resolve()), 'source_sha256': hashlib.sha256(input_path.read_bytes()).hexdigest(),
-        'versions': {'pandas': pd.__version__, 'numpy': np.__version__, 'sklearn': sklearn.__version__, 'boruta': version('Boruta')},
+        'versions': {'pandas': pd.__version__, 'numpy': np.__version__, 'sklearn': sklearn.__version__, 'boruta': version('Boruta'), 'xgboost': version('xgboost-cpu')},
         'models': models_config, 'git': git_metadata(),
         'selector_settings': {'boruta': boruta.SELECTOR_SETTINGS},
         'boruta_evaluator': 'RandomForestClassifier; Boruta is the selector, not a predictive model.',
@@ -169,8 +178,10 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
             'fit_scope': 'Each training fold independently; final fit on the 80% training portion',
         },
         'imputation': 'Training-only median for numeric and most-frequent for categorical; not full-data MissForest.',
-        'ranking': 'Logistic: summed absolute standardized coefficients; tree: summed impurity importance; Boruta: native rank then summed median importance, per original attribute.',
-        'zero_importance_ties': 'Ordered alphabetically to return exactly 20; inspect importance before interpretation.',
+        'ranking': 'Scores aggregated to original attributes: coefficients, statistical scores, impurity/gain, RFE rank or Boruta rank. See method modules.',
+        'selection_limit': 'At most 20 original attributes with positive importance; no zero-score padding.',
+        'evaluation_classifiers': {name: type(method.build_model()).__name__ for name, method in METHODS.items()},
+        'rfe_settings': {'step': 0.1, 'encoded_features_to_select': 20},
         'shared_selected_features': overlap,
         'timing_limitation': 'Predictor collection times are unknown; additional outcome proxies may remain.',
     }

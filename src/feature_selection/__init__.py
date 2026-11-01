@@ -1,1 +1,4 @@
-"""Supervised selection of original attributes associated with recorded death."""
+"""Feature selection methods grouped into baselines, statistics and model_based.
+
+Shared preprocessing, capped ranking and evaluation helpers live here.
+"""
