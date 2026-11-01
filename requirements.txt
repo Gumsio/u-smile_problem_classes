@@ -3,3 +3,4 @@ openpyxl
 jupyter
 numpy
 scikit-learn>=1.4
+Boruta==0.4.3

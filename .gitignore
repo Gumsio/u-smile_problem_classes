@@ -13,3 +13,6 @@ data/processed/*
 
 # OS files
 .DS_Store
+
+# Reproducible generated analysis runs
+results/feature_selection/
