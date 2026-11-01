@@ -139,7 +139,7 @@ Worked on separate branches for column pruning, dates, imputation, and documenta
 
 Created the `documentation` branch and this report at `documentation/ankasmietanka_report.md`.
 
-## 9. Feature-selection results
+## 9. Initial feature-selection results (historical run)
 
 Compared logistic regression and a decision tree to select **20 original
 attributes per method** associated with recorded death (`zgon`). This section
@@ -209,6 +209,161 @@ Next, review the data definitions and timing, inspect selection frequency, and
 investigate why the two methods choose different attributes. Keep ROC AUC as
 the main comparison measure and retain the other metrics as supporting results.
 The present results do not identify the main cause of death.
+
+## 10. Expanded feature-selection comparison — 1 November 2026
+
+### Methods and code organization
+
+Expanded the comparison from the initial baselines to ten approaches:
+logistic regression, decision tree, ANOVA, mutual information, random-forest
+importance, RFE, Boruta, Lasso, Elastic Net, and XGBoost.
+
+The method modules are grouped under `src/feature_selection/`:
+
+- `baselines/`: logistic regression and decision tree.
+- `statistics/`: ANOVA and mutual information.
+- `model_based/`: random forest, RFE, Boruta, Lasso, Elastic Net, and XGBoost.
+
+Shared preprocessing, capped ranking, reporting and evaluation helpers remain
+in the package root. `src/select_features.py` runs the unified comparison;
+`src/run_pipeline.py` runs cleaning and then feature selection. The latter
+was renamed from `run_data_science.py` for clarity.
+
+Merged the numbered feature-selection branches into local `feature-selection`.
+The baseline branch had no unique commits left to merge. The Boruta branch
+supplied the baseline runner and its comparison notebook. Pending work on
+Lasso, Elastic Net and XGBoost was preserved while resolving dependency and
+ignore-file conflicts. The original ANOVA/MI/RF/RFE exploratory notebook,
+`test_feature_selection_techniques.ipynb`, was restored byte-for-byte to its
+original version. All validated evaluations now appear together in
+`feature_selection_comparison.ipynb`.
+
+### New selection methods
+
+**Boruta** uses random forests and shuffled shadow features. Added BorutaPy
+and retained its confirmed, tentative and rejected decisions alongside the
+capped comparison ranking. Initial settings are 128 trees and at most 50
+iterations. An original attribute is labelled confirmed when any encoded
+category is confirmed; this grouping is a reporting convention, not a separate
+joint test. In the latest final fit, Boruta confirmed **17 original attributes**,
+left **8 tentative**, and rejected **262**. The comparison uses the 17 confirmed
+attributes plus the three highest-ranked tentative attributes. The notebook
+explicitly distinguishes confirmed relevance from inclusion in the top 20.
+
+**Lasso and Elastic Net** use penalized logistic regression because death is a
+binary outcome: L1 regularization for Lasso-style selection and mixed L1/L2 for
+Elastic Net. Initial settings are `C=0.1`, with `l1_ratio=0.5` for Elastic Net.
+An early exploratory whole-cleaned-data fit produced 48 and 101 nonzero
+attributes respectively. These were candidate counts, not the final chosen
+sets; selection is now capped at 20 positive-score original attributes.
+
+**XGBoost** ranks encoded inputs by gain and groups their importance under
+original attribute names. Added the official CPU-only XGBoost dependency.
+Initial settings are 200 trees, depth 3 and learning rate 0.05.
+
+**ANOVA, mutual information, random-forest importance and RFE** were brought
+into the shared evaluation rather than scoring the original notebook's
+whole-dataset rankings. RFE eliminates 10% of encoded inputs per iteration;
+its best encoded rank is used for each original attribute.
+
+### Common evaluation procedure
+
+The latest run is `20261101T134938_572565Z`. It uses the same 393 patients,
+314 training patients, 79 held-out test patients and five stratified validation
+folds within the training portion for every approach. In every fold, pruning,
+imputation, encoding, scaling, selection and classifier fitting use only the
+fold's training rows. Selection starts from raw data instead of the CSV already
+imputed on the full dataset. Numeric predictors use training-fitted median
+imputation, and categorical predictors use the most frequent training value.
+
+Each method chooses **at most 20 original attributes**. Encoded categories are
+grouped under their original columns. Zero-score attributes are not added to
+fill a list. If no attributes survive, a constant training-prevalence model
+provides a defined ROC AUC baseline. The latest final selections all contain 20
+attributes.
+
+ROC AUC is the primary metric. Methods are ordered by mean validation ROC AUC,
+with fold standard deviations shown separately. Test ROC AUC is reported but
+not used to choose features or settings. ANOVA, mutual information and RFE use
+logistic regression as their evaluation classifier. Other methods use their
+corresponding classifier; Boruta uses a random forest. The comparison therefore
+measures complete selection/classifier approaches, not selector effects alone.
+
+### Latest results
+
+| Approach | Mean validation ROC AUC | Fold std. deviation | Held-out test ROC AUC |
+| --- | --- | --- | --- |
+| anova | 0.777 | 0.041 | 0.742 |
+| lasso | 0.772 | 0.061 | 0.762 |
+| boruta | 0.768 | 0.027 | 0.782 |
+| random_forest | 0.764 | 0.022 | 0.765 |
+| mutual_information | 0.758 | 0.048 | 0.712 |
+| elastic_net | 0.748 | 0.051 | 0.752 |
+| xgboost | 0.736 | 0.051 | 0.701 |
+| rfe | 0.692 | 0.057 | 0.806 |
+| decision_tree | 0.655 | 0.069 | 0.631 |
+| logistic_regression | 0.589 | 0.087 | 0.737 |
+
+ANOVA has the highest mean validation ROC AUC in this fixed-setting run, followed
+by Lasso and Boruta. RFE has a higher held-out test ROC AUC than its validation
+mean; these values come from different patient subsets and fitted selections.
+A high test score on one split does not establish reliable superiority. Fold
+standard deviations are not confidence intervals, and this comparison does not
+establish statistically significant differences or causes of death.
+
+The earlier standalone Lasso/Elastic Net/XGBoost scores used five folds over
+all patients. They are not directly interchangeable with the unified run,
+which validates inside the 80% training portion. The decision-tree validation
+score also changed slightly when zero-score padding was removed. Section 9
+records the earlier two-method experiment and is retained as history.
+
+### Readable attribute summaries and saved files
+
+Simplified the comparison notebook to show only the **five highest-ranked
+chosen attributes per method**, rather than printing every complete selection.
+The full selections remain available in one `top20_attributes_by_method.csv`:
+rows are ranks 1–20, columns are method names, and empty cells represent smaller
+sets. Added `attribute_selection_frequency.csv` to count how many methods choose
+each attribute across their complete final selections, not merely the five
+shown. Cross-validation frequency is saved separately in
+`fold_selection_frequency.csv`.
+
+There are **91 distinct attributes** across the ten final selected lists.
+The most frequently chosen are:
+
+| Attribute | Methods choosing it | Share of methods |
+| --- | --- | --- |
+| `B_NT - proBNP` | 10 / 10 | 100% |
+| `B_Kreatynina` | 8 / 10 | 80% |
+| `6mwt_,Dystans` | 7 / 10 | 70% |
+| `E_diastarea` | 7 / 10 | 70% |
+| `LVEF` | 7 / 10 | 70% |
+
+Agreement across methods is descriptive and does not prove clinical relevance.
+Each UTC-named run folder also contains full rankings, selected names in JSON,
+per-fold metrics, validation summaries, held-out metrics, fold-selected names,
+pairwise overlap counts and configuration metadata. Metadata records data hash,
+software versions, settings, random seed and Git state. Generated run folders
+are ignored by Git and contain aggregate results rather than patient records.
+
+### Checks and remaining work
+
+Verified all 50 validation results (ten approaches times five folds), the
+at-most-20 rule, exclusion of known outcome-derived attributes, notebook
+execution and schema, package imports and grouped method paths. Verified the
+combined 20-by-10 attribute CSV against the selected-name JSON and independently
+checked every cross-method frequency count. Tested the no-feature fallback,
+input preservation and repeatability. The exploratory notebook was checked
+against its original committed bytes.
+
+Hyperparameter tuning, including possible Optuna studies, was discussed but
+**has not been implemented**. Current scores use fixed initial settings. Any
+future tuning must keep preprocessing and selection within training folds and
+clearly separate tuning scores from evaluation scores. Numeric category-code
+meanings, target coding and predictor measurement timing still require review.
+
+A shared TODO file was discussed but has not yet been created. No feature
+branches were deleted during consolidation.
 
 ## References
 
