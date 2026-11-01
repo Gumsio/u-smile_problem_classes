@@ -139,6 +139,77 @@ Worked on separate branches for column pruning, dates, imputation, and documenta
 
 Created the `documentation` branch and this report at `documentation/ankasmietanka_report.md`.
 
+## 9. Feature-selection results
+
+Compared logistic regression and a decision tree to select **20 original
+attributes per method** associated with recorded death (`zgon`). This section
+summarizes the run `20261028T133247_937065Z` displayed in
+`notebooks/feature_selection_comparison.ipynb`.
+
+### Evaluation method
+
+The dataset contained 393 patients. A stratified split assigned 314 patients to
+training and 79 to the final test set. Five-fold cross-validation was performed
+within the training set. Pruning, imputation, encoding, scaling, and feature
+selection were fitted separately on each fold's training rows. Each method
+then selected its final 20 attributes using the full training portion.
+
+**ROC AUC is the primary comparison metric.** The values below are means and
+sample standard deviations across the five validation folds, not final test
+scores or confidence intervals.
+
+| Method | Selected attributes | Mean validation ROC AUC | Standard deviation |
+| --- | --- | --- | --- |
+| Decision tree | 20 | 0.657 (approximately 0.66) | 0.081 |
+| Logistic regression | 20 | 0.589 (approximately 0.59) | 0.087 |
+
+The decision tree had the higher mean validation ROC AUC in this run, by about
+0.068. Both mean scores were above the random-ranking reference of 0.5, but
+performance was limited and varied across folds. These results alone do not
+establish a statistically significant difference between the methods or
+clinical usefulness. Final test results are reported separately in the notebook
+and are not used to choose features or tune the models.
+
+### Shared attributes
+
+The final selections shared only **three attributes**:
+
+- `Ant_DBP`
+- `B_NT - proBNP`
+- `B_PLT`
+
+The overlap is 3 out of 20 attributes in either list (15%). Across both lists,
+there are 37 distinct attributes. The small overlap shows that the two methods
+produced substantially different selections. Logistic regression uses absolute
+coefficients, whereas the decision tree uses impurity reduction, so they need
+not rank the same attributes highly. The overlap alone does not measure
+selection stability; that requires checking selections across folds, available
+in `fold_selected_features.csv` and the notebook.
+
+The shared attributes are candidates for further investigation. Their presence
+in both lists does not prove that they cause death, and the other selected
+attributes should not be dismissed solely because they appear in only one list.
+
+### Interpretation and next steps
+
+This is an exploratory analysis of associations with recorded death. Target
+coding assumes `1` means death and `0` means no recorded death; the coding and
+measurement timing still need confirmation from the data documentation.
+Known outcome-derived dates and durations were excluded, but further outcome
+proxies may remain. Follow-up length varies, so this is not a prediction of
+death within a fixed period.
+
+For this experiment, both methods retain exactly 20 attributes. Some tree fits
+inside validation folds assigned zero importance to enough attributes that
+alphabetical tie-breaking was needed to reach 20. Neither final training-set
+selection contained a zero-importance attribute. A selected name should still
+be assessed together with its score and frequency of selection across folds.
+
+Next, review the data definitions and timing, inspect selection frequency, and
+investigate why the two methods choose different attributes. Keep ROC AUC as
+the main comparison measure and retain the other metrics as supporting results.
+The present results do not identify the main cause of death.
+
 ## References
 
 - [MissForest algorithm paper](https://arxiv.org/abs/1105.0828)
