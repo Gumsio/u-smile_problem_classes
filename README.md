@@ -359,3 +359,26 @@ The comparison notebook shows only the top five chosen attributes per method.
 (rows: ranks 1–20; columns: methods). `attribute_selection_frequency.csv` counts
 how many methods chose each attribute across their complete final selections.
 Cross-validation frequency is saved separately as `fold_selection_frequency.csv`.
+
+
+Final attribute exports include only methods with **mean cross-validation ROC
+AUC >= 0.70**. The cutoff is `MIN_ROC_AUC` in `reporting.py`; a score exactly
+0.70 qualifies. All methods remain visible in performance tables and full
+rankings. `method_eligibility.csv` records the decision. The combined top-20 CSV,
+`selected_features.json`, overlap and agreement counts use eligible methods only.
+`all_method_selected_features.json` preserves the unfiltered selections for audit.
+Held-out test ROC AUC is never used to choose eligible methods.
+
+
+### Final consensus selection
+
+The eligible methods vote to produce one final list of 20 original attributes.
+Each method gives one vote per chosen attribute. Sort by votes, then mean rank
+points across all eligible methods: `(21 - rank) / 20`, with zero for absence.
+Remaining ties are alphabetical. `final_selected_attributes.csv` contains the
+final rank, feature, votes, mean rank points and selecting method names;
+`consensus_attribute_ranking.csv` retains all candidates. If fewer than 20
+candidates exist, save the smaller set rather than padding it. The comparison
+notebook displays the final list. This is a descriptive consensus, without an
+independent consensus ROC AUC; qualifying methods and voting would need to be
+repeated within training splits for that evaluation.

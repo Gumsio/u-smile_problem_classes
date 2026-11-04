@@ -30,7 +30,7 @@ from src.feature_selection.baselines import logistic_regression, decision_tree
 from src.feature_selection.model_based import boruta, lasso, elastic_net, xgboost, random_forest, rfe
 from src.feature_selection.statistics import anova, mutual_information
 from src.feature_selection.preprocessing import FeaturePreprocessor, prepare_xy
-from src.feature_selection.reporting import save_selection_reports
+from src.feature_selection.reporting import save_selection_reports, MIN_ROC_AUC
 from src.cleaning_steps.column_pruning import prune_columns
 
 PRIMARY_METRIC = "roc_auc"
@@ -143,7 +143,12 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
     summary.to_csv(output / 'cv_summary.csv')
     final_rankings = pd.concat(ranking_tables, ignore_index=True)
     final_rankings.to_csv(output / 'feature_rankings.csv', index=False)
-    save_selection_reports(final_rankings, output)
+    eligible = set(summary.index[summary['roc_auc_mean'].ge(MIN_ROC_AUC)])
+    final_rankings['eligible_for_final_selection'] = final_rankings['method'].isin(eligible)
+    final_rankings['final_selected'] = final_rankings['selected'] & final_rankings['eligible_for_final_selection']
+    final_rankings.to_csv(output / 'feature_rankings.csv', index=False)
+    save_selection_reports(final_rankings, output, summary)
+    selected_sets = {name: names for name, names in selected_sets.items() if name in eligible}
     pd.DataFrame(test_rows).to_csv(output / 'test_results.csv', index=False)
     pd.DataFrame(fold_selections).to_csv(output / 'fold_selected_features.csv', index=False)
     overlap = {
@@ -153,11 +158,16 @@ def run_feature_selection(input_path=RAW_DATA_PATH, output_root=None, *, random_
     pd.DataFrame([
         {'method_a': left, 'method_b': right, 'shared_count': len(set(selected_sets[left]) & set(selected_sets[right]))}
         for left, right in combinations(selected_sets, 2)
-    ]).to_csv(output / 'feature_overlap.csv', index=False)
+    ], columns=['method_a', 'method_b', 'shared_count']).to_csv(output / 'feature_overlap.csv', index=False)
     (output / 'selected_features.json').write_text(json.dumps(selected_sets, indent=2, ensure_ascii=False) + '\n')
     config = {
         **preparation, 'n_features': N_FEATURES, 'random_state': random_state,
         'primary_metric': PRIMARY_METRIC,
+        'min_final_selection_roc_auc': MIN_ROC_AUC,
+        'consensus': {'limit': 20, 'primary_rank': 'one vote per eligible method',
+                      'tie_break': 'mean (21-rank)/20 across all eligible methods; absent=0; then name',
+                      'interpretation': 'descriptive consensus; no independent consensus ROC AUC'},
+        'eligible_methods': sorted(eligible),
         'comparison_rule': 'Higher mean cross-validation ROC AUC; test scores are reporting only.',
         'test_fraction': 0.2, 'cv_folds': 5, 'train_rows': len(X_train), 'test_rows': len(X_test),
         'class_counts': {str(k): int(v) for k, v in y.value_counts().items()},
