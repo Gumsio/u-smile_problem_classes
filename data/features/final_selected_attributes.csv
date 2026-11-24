@@ -1,0 +1,21 @@
+rank,feature,votes,rank_points,selected_by
+1,B_NT - proBNP,7,1.0,anova; boruta; elastic_net; lasso; mutual_information; random_forest; xgboost
+2,B_Kreatynina,7,0.38571428571428573,anova; boruta; elastic_net; lasso; mutual_information; random_forest; xgboost
+3,E_diastarea,6,0.7214285714285714,anova; boruta; elastic_net; lasso; random_forest; xgboost
+4,LVEF,6,0.6785714285714286,anova; boruta; elastic_net; lasso; mutual_information; random_forest
+5,"6mwt_,Dystans",6,0.5071428571428571,anova; boruta; elastic_net; lasso; mutual_information; random_forest
+6,"E_skurcz,LAA cm2",5,0.35714285714285715,anova; boruta; elastic_net; mutual_information; random_forest
+7,E_LV2j   rozk cm2,4,0.4357142857142857,anova; boruta; lasso; random_forest
+8,Ea'_mean,4,0.4142857142857143,anova; boruta; random_forest; xgboost
+9,egfr_CG,4,0.3357142857142857,anova; boruta; lasso; random_forest
+10,B_GFR wg MDRD,4,0.24285714285714285,anova; lasso; random_forest; xgboost
+11,E_Lewy przedsionek,4,0.20714285714285716,anova; boruta; lasso; random_forest
+12,Edoeprim,3,0.2571428571428571,anova; boruta; random_forest
+13,Ant_SBP,3,0.25,elastic_net; lasso; xgboost
+14,"E_rozk,LV  cm2",3,0.22142857142857142,boruta; elastic_net; lasso
+15,Chadsvasc,3,0.20714285714285716,elastic_net; lasso; xgboost
+16,MDRDcorr,3,0.20714285714285716,anova; boruta; random_forest
+17,"E_Lewa kom, rozk,",3,0.2,anova; boruta; random_forest
+18,"E_rozk,RAA cm2",3,0.2,anova; boruta; random_forest
+19,E_Lewa komora skurcz,3,0.17857142857142858,boruta; mutual_information; random_forest
+20,"Esax,SAX,AccT msek",3,0.12857142857142856,anova; elastic_net; lasso
